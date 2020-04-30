@@ -233,6 +233,7 @@ open class BTNavigationDropdownMenu: UIView {
     fileprivate var tableView: BTTableView!
     fileprivate var items: [String]!
     fileprivate var menuWrapper: UIView!
+    private var containerView: UIView!
 
     required public init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -278,6 +279,7 @@ open class BTNavigationDropdownMenu: UIView {
         } else {
             self.navigationController = window.rootViewController?.topMostViewController?.navigationController
         }
+        self.containerView = containerView
 
         // Get titleSize
         let titleSize: CGSize
@@ -319,16 +321,16 @@ open class BTNavigationDropdownMenu: UIView {
         self.menuArrow = UIImageView(image: self.configuration.arrowImage.withRenderingMode(.alwaysTemplate))
         self.menuButton.addSubview(self.menuArrow)
 
-        let menuWrapperBounds = window.bounds
+        let menuWrapperBounds = menuWrapperFrame()
 
         // Set up DropdownMenu
-        self.menuWrapper = UIView(frame: CGRect(x: menuWrapperBounds.origin.x, y: 0, width: menuWrapperBounds.width, height: menuWrapperBounds.height))
+        self.menuWrapper = UIView(frame: menuWrapperBounds)
         self.menuWrapper.viewIdentifier = "BTNavigationDropDownMenu-MenuWrapper"
         self.menuWrapper.clipsToBounds = true
         self.menuWrapper.autoresizingMask = [ .flexibleWidth, .flexibleHeight ]
 
         // Init background view (under table view)
-        self.backgroundView = UIView(frame: menuWrapperBounds)
+        self.backgroundView = UIView(frame: CGRect(origin: .zero, size: menuWrapperBounds.size))
         self.backgroundView.backgroundColor = self.configuration.maskBackgroundColor
         self.backgroundView.autoresizingMask = [ .flexibleWidth, .flexibleHeight ]
 
@@ -339,9 +341,7 @@ open class BTNavigationDropdownMenu: UIView {
         self.setupDefaultConfiguration()
 
         // Init table view
-        let navBarHeight = self.navigationController?.navigationBar.bounds.size.height ?? 0
-        let statusBarHeight = UIApplication.shared.statusBarFrame.height
-        self.tableView = BTTableView(frame: CGRect(x: menuWrapperBounds.origin.x, y: menuWrapperBounds.origin.y + 0.5, width: menuWrapperBounds.width, height: menuWrapperBounds.height + 300 - navBarHeight - statusBarHeight), items: items, title: titleToDisplay, configuration: self.configuration)
+        self.tableView = BTTableView(frame: CGRect(x: 0, y: 0.5, width: menuWrapperBounds.width, height: menuWrapperBounds.height + 300), items: items, title: titleToDisplay, configuration: self.configuration)
 
         self.tableView.selectRowAtIndexPathHandler = { [weak self] (indexPath: Int) -> () in
             guard let selfie = self else {
@@ -374,6 +374,7 @@ open class BTNavigationDropdownMenu: UIView {
 
         // By default, hide menu view
         self.menuWrapper.isHidden = true
+        NotificationCenter.default.addObserver(self, selector: #selector(deviceOrienttationChanged), name: UIDevice.orientationDidChangeNotification, object: nil)
     }
 
     override open func layoutSubviews() {
@@ -382,7 +383,7 @@ open class BTNavigationDropdownMenu: UIView {
         self.menuTitle.textColor = self.configuration.menuTitleColor
         self.menuArrow.sizeToFit()
         self.menuArrow.center = CGPoint(x: self.menuTitle.frame.maxX + self.configuration.arrowPadding, y: self.frame.size.height/2)
-        self.menuWrapper.frame.origin.y = self.navigationController!.navigationBar.frame.maxY
+//        self.menuWrapper.frame.origin.y = self.navigationController!.navigationBar.frame.maxY
         self.tableView.reloadData()
     }
 
@@ -407,10 +408,8 @@ open class BTNavigationDropdownMenu: UIView {
     }
 
     open func updateItems(_ items: [String]) {
-        if !items.isEmpty {
-            self.tableView.items = items
-            self.tableView.reloadData()
-        }
+        self.tableView.items = items
+        self.tableView.reloadData()
     }
 
     open func setSelected(index: Int) {
@@ -432,7 +431,8 @@ open class BTNavigationDropdownMenu: UIView {
     }
 
     func showMenu() {
-        self.menuWrapper.frame.origin.y = self.navigationController!.navigationBar.frame.maxY
+//        self.menuWrapper.frame.origin.y = self.navigationController!.navigationBar.frame.maxY
+        self.menuWrapper.frame = menuWrapperFrame()
 
         self.isShown = true
 
@@ -518,9 +518,39 @@ open class BTNavigationDropdownMenu: UIView {
     
     func setMenuTitle(_ title: String) {
         self.menuTitle.text = title
+        setNeedsLayout()
     }
     
     @objc func menuButtonTapped(_ sender: UIButton) {
         self.isShown == true ? hideMenu() : showMenu()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: UIDevice.orientationDidChangeNotification, object: nil)
+    }
+
+    func menuWrapperFrame() -> CGRect {
+        var frame: CGRect = .zero
+        if #available(iOS 11.0, *) {
+            frame = containerView.safeAreaLayoutGuide.layoutFrame
+        } else {
+            frame = containerView.frame
+            let statusBarHeight = UIApplication.shared.isStatusBarHidden ? 0 : UIApplication.shared.statusBarFrame.height
+            let navigationBarHeight = self.navigationController?.navigationBar.frame.height ?? 0
+            let offset = navigationBarHeight + statusBarHeight
+            frame.size.height -= offset
+            frame.origin.y += offset
+        }
+
+        return frame
+    }
+
+    @objc func deviceOrienttationChanged() {
+        let frame = menuWrapperFrame()
+
+        self.menuWrapper.frame = frame
+        self.backgroundView.frame = CGRect(origin: .zero, size: frame.size)
+        self.tableView.frame = CGRect(x: 0, y: self.tableView.frame.origin.y, width: frame.width, height: frame.height + 300)
+        self.topSeparator.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: 0.5)
     }
 }

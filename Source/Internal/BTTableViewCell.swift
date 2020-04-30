@@ -37,7 +37,14 @@ class BTTableViewCell: UITableViewCell {
         self.configuration = configuration
         
         // Setup cell
-        cellContentFrame = CGRect(x: 0, y: 0, width: (UIApplication.shared.keyWindow?.frame.width)!, height: self.configuration.cellHeight)
+        if #available(iOS 11.0, *) {
+            var layoutFrame = UIApplication.shared.keyWindow?.safeAreaLayoutGuide.layoutFrame
+            layoutFrame?.origin = .zero
+            cellContentFrame = CGRect(x: 0, y: 0, width: layoutFrame!.width, height: self.configuration.cellHeight)
+        } else {
+            cellContentFrame = CGRect(x: 0, y: 0, width: (UIApplication.shared.keyWindow?.frame.width)!, height: self.configuration.cellHeight)
+        }
+
         self.contentView.backgroundColor = self.configuration.cellBackgroundColor
         self.selectionStyle = UITableViewCell.SelectionStyle.none
         self.textLabel!.textColor = self.configuration.cellTextLabelColor
