@@ -26,6 +26,8 @@
 
 import UIKit
 
+public typealias BTMenuItemSelectionHandler = (BTMenuItem) -> Void
+
 // MARK: BTNavigationDropdownMenu
 open class BTNavigationDropdownMenu: UIView {
 
@@ -220,7 +222,7 @@ open class BTNavigationDropdownMenu: UIView {
         }
     }
 
-    open var didSelectItemAtIndexHandler: ((_ indexPath: Int) -> ())?
+    open var didSelectItem: BTMenuItemSelectionHandler?
     open var isShown: Bool!
 
     fileprivate weak var navigationController: UINavigationController?
@@ -231,7 +233,7 @@ open class BTNavigationDropdownMenu: UIView {
     fileprivate var menuArrow: UIImageView!
     fileprivate var backgroundView: UIView!
     fileprivate var tableView: BTTableView!
-    fileprivate var items: [String]!
+    fileprivate var items: [BTMenuItem]!
     fileprivate var menuWrapper: UIView!
     private var containerView: UIView!
 
@@ -249,9 +251,9 @@ open class BTNavigationDropdownMenu: UIView {
         - title: A string to define title to be displayed.
         - items: The array of items to select
      */
-    public convenience init(navigationController: UINavigationController? = nil, containerView: UIView = UIApplication.shared.keyWindow!, title: String, items: [String]) {
+    public convenience init(navigationController: UINavigationController? = nil, containerView: UIView = UIApplication.shared.keyWindow!, selectedItemId: Int, items: [BTMenuItem]) {
 
-        self.init(navigationController: navigationController, containerView: containerView, title: BTTitle.title(title), items: items)
+        self.init(navigationController: navigationController, containerView: containerView, title: BTTitle.id(selectedItemId), items: items)
     }
 
     /**
@@ -266,7 +268,7 @@ open class BTNavigationDropdownMenu: UIView {
         - title: An enum to define title to be displayed, can be a string or index of items.
         - items: The array of items to select
      */
-    public init(navigationController: UINavigationController? = nil, containerView: UIView = UIApplication.shared.keyWindow!, title: BTTitle, items: [String]) {
+    public init(navigationController: UINavigationController? = nil, containerView: UIView = UIApplication.shared.keyWindow!, title: BTTitle, items: [BTMenuItem]) {
         // Key window
         guard let window = UIApplication.shared.keyWindow else {
             super.init(frame: CGRect.zero)
@@ -283,19 +285,21 @@ open class BTNavigationDropdownMenu: UIView {
 
         // Get titleSize
         let titleSize: CGSize
-        let titleToDisplay: String
+        var selectedItemId: Int?
 
-        switch title{
+        switch title {
         case .index(let index):
             if index < items.count{
-                titleToDisplay = items[index]
-            } else {
-                titleToDisplay = ""
+                selectedItemId = items[index].id
             }
-        case .title(let title):
-            titleToDisplay = title
+        case .id(let id):
+            selectedItemId = id
         }
 
+        var titleToDisplay = ""
+        if let selectedItemId = selectedItemId {
+            titleToDisplay = items.first { $0.id == selectedItemId }?.title ?? ""
+        }
         titleSize = (titleToDisplay as NSString).size(withAttributes: [NSAttributedString.Key.font:self.configuration.navigationBarTitleFont])
 
         // Set frame
@@ -341,15 +345,15 @@ open class BTNavigationDropdownMenu: UIView {
         self.setupDefaultConfiguration()
 
         // Init table view
-        self.tableView = BTTableView(frame: CGRect(x: 0, y: 0.5, width: menuWrapperBounds.width, height: menuWrapperBounds.height + 300), items: items, title: titleToDisplay, configuration: self.configuration)
+        self.tableView = BTTableView(frame: CGRect(x: 0, y: 0.5, width: menuWrapperBounds.width, height: menuWrapperBounds.height + 300), items: items, selectedItemId: selectedItemId, configuration: self.configuration)
 
         self.tableView.selectRowAtIndexPathHandler = { [weak self] (indexPath: Int) -> () in
             guard let selfie = self else {
                 return
             }
-            selfie.didSelectItemAtIndexHandler!(indexPath)
+            selfie.didSelectItem?(items[indexPath])
             if selfie.shouldChangeTitleText! {
-                selfie.setMenuTitle("\(selfie.tableView.items[indexPath])")
+                selfie.setMenuTitle("\(selfie.tableView.items[indexPath].title)")
             }
             self?.hideMenu()
             self?.layoutSubviews()
@@ -383,7 +387,6 @@ open class BTNavigationDropdownMenu: UIView {
         self.menuTitle.textColor = self.configuration.menuTitleColor
         self.menuArrow.sizeToFit()
         self.menuArrow.center = CGPoint(x: self.menuTitle.frame.maxX + self.configuration.arrowPadding, y: self.frame.size.height/2)
-//        self.menuWrapper.frame.origin.y = self.navigationController!.navigationBar.frame.maxY
         self.tableView.reloadData()
     }
 
@@ -407,7 +410,7 @@ open class BTNavigationDropdownMenu: UIView {
         }
     }
 
-    open func updateItems(_ items: [String]) {
+    open func updateItems(_ items: [BTMenuItem]) {
         self.tableView.items = items
         self.tableView.reloadData()
     }
@@ -417,7 +420,13 @@ open class BTNavigationDropdownMenu: UIView {
         self.tableView.reloadData()
 
         if self.shouldChangeTitleText! {
-            self.setMenuTitle("\(self.tableView.items[index])")
+            self.setMenuTitle("\(self.tableView.items[index].title)")
+        }
+    }
+
+    open func setSelected(id: Int) {
+        if let index = tableView.items.firstIndex(where: { $0.id == id }) {
+            setSelected(index: index)
         }
     }
 
@@ -431,7 +440,6 @@ open class BTNavigationDropdownMenu: UIView {
     }
 
     func showMenu() {
-//        self.menuWrapper.frame.origin.y = self.navigationController!.navigationBar.frame.maxY
         self.menuWrapper.frame = menuWrapperFrame()
 
         self.isShown = true

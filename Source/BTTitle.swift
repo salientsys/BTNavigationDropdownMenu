@@ -33,6 +33,18 @@ import Foundation
              Items is defined from BTNavigationDropdownMenu initialization.
  */
 public enum BTTitle {
-    case title(String)
+    case id(Int)
     case index(Int)
+}
+
+public struct BTMenuItem {
+    public let id: Int
+    public let title: String
+    public let icon: UIImage?
+
+    public init(id: Int, title: String, icon: UIImage? = nil) {
+        self.id = id
+        self.title = title
+        self.icon = icon
+    }
 }

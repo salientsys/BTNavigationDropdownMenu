@@ -30,18 +30,19 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     var selectRowAtIndexPathHandler: ((_ indexPath: Int) -> ())?
     
     // Private properties
-    var items: [String] = []
+    var items: [BTMenuItem] = []
     var selectedIndexPath: Int?
     
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    init(frame: CGRect, items: [String], title: String, configuration: BTConfiguration) {
+    init(frame: CGRect, items: [BTMenuItem], selectedItemId: Int?, configuration: BTConfiguration) {
         super.init(frame: frame, style: UITableView.Style.plain)
         
         self.items = items
-        self.selectedIndexPath = items.index(of: title)
+//        self.selectedIndexPath = items.index(of: title)
+        self.selectedIndexPath = items.firstIndex { $0.id == selectedItemId }
         self.configuration = configuration
         
         // Setup table view
@@ -75,9 +76,12 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let item: BTMenuItem = items[indexPath.row]
         let cell = BTTableViewCell(style: UITableViewCell.CellStyle.default, reuseIdentifier: "Cell", configuration: self.configuration)
-        cell.textLabel?.text = self.items[(indexPath as NSIndexPath).row]
+        cell.textLabel?.text = item.title
         cell.checkmarkIcon.isHidden = ((indexPath as NSIndexPath).row == selectedIndexPath) ? false : true
+        cell.imageView?.image = item.icon
+
         return cell
     }
     
