@@ -27,7 +27,7 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     
     // Public properties
     var configuration: BTConfiguration!
-    var selectRowAtIndexPathHandler: ((_ indexPath: Int) -> ())?
+    var itemSelectionHandler: ((BTMenuItem) -> ())?
     
     // Private properties
     var items: [BTMenuItem] = []
@@ -41,7 +41,6 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
         super.init(frame: frame, style: UITableView.Style.plain)
         
         self.items = items
-//        self.selectedIndexPath = items.index(of: title)
         self.selectedIndexPath = items.firstIndex { $0.id == selectedItemId }
         self.configuration = configuration
         
@@ -49,19 +48,15 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
         self.delegate = self
         self.dataSource = self
         self.backgroundColor = UIColor.clear
-        self.separatorStyle = UITableViewCell.SeparatorStyle.none
+        self.tintColor = .white
+        self.separatorColor = configuration.cellSeparatorColor
+        self.separatorInset = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
         //        self.separatorEffect = UIBlurEffect(style: .Light)
-        self.autoresizingMask = UIView.AutoresizingMask.flexibleWidth
         self.tableFooterView = UIView(frame: CGRect.zero)
+
+        register(BTTableViewCell.self, forCellReuseIdentifier: String(describing: BTTableViewCell.self))
     }
-    
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        if let hitView = super.hitTest(point, with: event) , hitView.isKind(of: BTTableCellContentView.self) {
-            return hitView
-        }
-        return nil;
-    }
-    
+
     // Table view data source
     func numberOfSections(in tableView: UITableView) -> Int {
         return 1
@@ -77,9 +72,11 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let item: BTMenuItem = items[indexPath.row]
-        let cell = BTTableViewCell(style: UITableViewCell.CellStyle.default, reuseIdentifier: "Cell", configuration: self.configuration)
+        let reuseIdentifier = String(describing: BTTableViewCell.self)
+        let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier, for: indexPath) as! BTTableViewCell
+        cell.configure(with: self.configuration)
         cell.textLabel?.text = item.title
-        cell.checkmarkIcon.isHidden = ((indexPath as NSIndexPath).row == selectedIndexPath) ? false : true
+        cell.accessoryType = (indexPath.row == selectedIndexPath) ? .checkmark : .none
         cell.imageView?.image = item.icon
 
         return cell
@@ -88,24 +85,7 @@ class BTTableView: UITableView, UITableViewDelegate, UITableViewDataSource {
     // Table view delegate
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         selectedIndexPath = (indexPath as NSIndexPath).row
-        self.selectRowAtIndexPathHandler!((indexPath as NSIndexPath).row)
-        self.reloadData()
-        let cell = tableView.cellForRow(at: indexPath) as? BTTableViewCell
-        cell?.contentView.backgroundColor = self.configuration.cellSelectionColor
-        cell?.textLabel?.textColor = self.configuration.selectedCellTextLabelColor
-    }
-    
-    func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
-        let cell = tableView.cellForRow(at: indexPath) as? BTTableViewCell
-        cell?.checkmarkIcon.isHidden = true
-        cell?.contentView.backgroundColor = self.configuration.cellBackgroundColor
-        cell?.textLabel?.textColor = self.configuration.cellTextLabelColor
-    }
-    
-    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        if self.configuration.shouldKeepSelectedCellColor == true {
-            cell.backgroundColor = self.configuration.cellBackgroundColor
-            cell.contentView.backgroundColor = ((indexPath as NSIndexPath).row == selectedIndexPath) ? self.configuration.cellSelectionColor : self.configuration.cellBackgroundColor
-        }
-    }
+        let item = items[indexPath.row]
+        self.itemSelectionHandler?(item)
+    }    
 }
